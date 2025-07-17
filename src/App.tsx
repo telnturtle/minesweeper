@@ -1,8 +1,15 @@
+import { css } from '@emotion/react'
+import { Minesweeper } from './Minesweeper'
+
 function App() {
-  const d = 0
   return (
     <>
-      <h1>App</h1>
+      <Minesweeper
+        css={css`
+          height: 100dvh;
+          width: 100dvw;
+        `}
+      />
     </>
   )
 }
