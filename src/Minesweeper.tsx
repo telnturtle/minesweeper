@@ -9,6 +9,7 @@ export function Minesweeper() {
   const [bombRate, setBombRate] = useState(10)
   const [map, setMap] = useState<boolean[][]>([])
   const [coveredMap, setCoveredMap] = useState<boolean[][]>([])
+  const [flagMap, setFlagMap] = useState<boolean[][]>([])
   const handleClickUncover = (rowIndex: number, cellIndex: number) => {
     if (coveredMap[rowIndex][cellIndex] && isSafe(map, rowIndex, cellIndex)) {
       /** coordinatesToOpen 에 들어있는 좌표들은 열린다. 첫 좌표를 넣어둔다. */
@@ -86,6 +87,7 @@ export function Minesweeper() {
           onClick={() => {
             setMap(MakeMap(width, height, bombRate / 100))
             setCoveredMap(MakeCoveredMap(width, height))
+            setFlagMap(MakeFlagMap(width, height))
           }}
         >
           set map
@@ -131,9 +133,23 @@ export function Minesweeper() {
                   empty: !cell,
                   doubleSafe: isDoubleSafe(map, rowIndex, cellIndex),
                 })}
+                contextMenu="none"
+                // 우클릭 시 flag set
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setFlagMap((flagMap) => {
+                    return flagMap.map((row, rowI) =>
+                      row.map((cell, cellI) =>
+                        cellI === cellIndex && rowI === rowIndex ? !cell : cell
+                      )
+                    )
+                  })
+                }}
               >
                 {coveredMap[rowIndex][cellIndex]
-                  ? ' '
+                  ? flagMap[rowIndex][cellIndex]
+                    ? '🚩'
+                    : ' '
                   : cell
                   ? '💣'
                   : isDoubleSafe(map, rowIndex, cellIndex)
@@ -199,6 +215,10 @@ function MakeMap(width: number, height: number, bombRate: number): boolean[][] {
 function MakeCoveredMap(width: number, height: number): boolean[][] {
   return Array.from({ length: height }, () => Array.from({ length: width }, () => true))
 }
+function MakeFlagMap(width: number, height: number): boolean[][] {
+  return Array.from({ length: height }, () => Array.from({ length: width }, () => false))
+}
 
 // '💣'
 // '🌱'
+// '🚩'
