@@ -113,7 +113,7 @@ export function Minesweeper() {
                   width: 20px;
                   height: 20px;
                   border: none;
-                  outline: 0.5px solid rgba(0 0 0 / 0.25);
+                  outline: 1px solid rgba(0 0 0 / 0.25);
                   border-radius: 0;
                   background-color: rgb(200 200 200 / 0.4);
                   &.covered {
