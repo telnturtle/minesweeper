@@ -1,9 +1,10 @@
 import { css } from '@emotion/react'
 import { clsx } from 'clsx'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 
 export function Minesweeper() {
   const { isSafe, isInMap, isDoubleSafe } = Minesweeper.c
+  const touchTimer = useRef<number | null>(null)
   const [width, setWidth] = useState(15)
   const [height, setHeight] = useState(25)
   const [bombRate, setBombRate] = useState(10)
@@ -53,6 +54,7 @@ export function Minesweeper() {
       })
     }
   }
+
   return (
     <>
       <div>
@@ -144,6 +146,28 @@ export function Minesweeper() {
                       )
                     )
                   })
+                }}
+                onTouchStart={() => {
+                  touchTimer.current = setTimeout(() => {
+                    // 500ms 이상 누르면 깃발
+                    setFlagMap((flagMap) => {
+                      return flagMap.map((row, rowI) =>
+                        row.map((cell, cellI) =>
+                          cellI === cellIndex && rowI === rowIndex ? !cell : cell
+                        )
+                      )
+                    })
+                  }, 500)
+                }}
+                onTouchEnd={() => {
+                  if (touchTimer.current) {
+                    clearTimeout(touchTimer.current)
+                  }
+                }}
+                onTouchCancel={() => {
+                  if (touchTimer.current) {
+                    clearTimeout(touchTimer.current)
+                  }
                 }}
               >
                 {coveredMap[rowIndex][cellIndex]
