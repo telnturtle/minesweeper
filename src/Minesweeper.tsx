@@ -7,7 +7,7 @@ export function Minesweeper() {
   const touchTimer = useRef<number | null>(null)
   const [width, setWidth] = useState(15)
   const [height, setHeight] = useState(25)
-  const [bombRate, setBombRate] = useState(10)
+  const [bombRate, setBombRate] = useState(30)
   const [map, setMap] = useState<boolean[][]>([])
   const [coveredMap, setCoveredMap] = useState<boolean[][]>([])
   const [flagMap, setFlagMap] = useState<boolean[][]>([])
@@ -112,8 +112,8 @@ export function Minesweeper() {
                   handleClickUncover(rowIndex, cellIndex)
                 }}
                 css={css`
-                  width: 20px;
-                  height: 20px;
+                  width: 25px;
+                  height: 25px;
                   border: none;
                   outline: 1px solid rgba(0 0 0 / 0.25);
                   border-radius: 0;
