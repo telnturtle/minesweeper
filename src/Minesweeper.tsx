@@ -101,6 +101,8 @@ export function Minesweeper() {
             key={rowIndex}
             css={css`
               display: flex;
+              /* 전체 drag 방지 */
+              user-select: none;
             `}
           >
             {row.map((cell, cellIndex) => (
