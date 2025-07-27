@@ -8,7 +8,9 @@ export function Minesweeper() {
   const [width, setWidth] = useState(15)
   const [height, setHeight] = useState(25)
   const [bombRate, setBombRate] = useState(20)
-  const [gameNotStarted, setGameNotStarted] = useState<boolean>(true)
+  const [gameStatus, setGameStatus] = useState<'ready' | 'playing' | 'won' | 'lost'>(
+    'ready'
+  )
   const initialCoordinate = useRef<[number, number] | null>(null)
   const [map, setMap] = useState<boolean[][]>([])
   const [coveredMap, setCoveredMap] = useState<boolean[][]>([])
@@ -69,7 +71,16 @@ export function Minesweeper() {
   )
 
   useEffect(() => {
-    if (gameNotStarted) {
+    if (gameStatus === 'playing') {
+      if (remainMines === 0) {
+        setGameStatus('won')
+      }
+    }
+  }, [gameStatus, remainMines])
+
+  useEffect(() => {
+    const isGameReady = gameStatus === 'ready'
+    if (isGameReady) {
       // reset 버튼을 누르면 첫 클릭 좌표를 초기화한다.
       initialCoordinate.current = null
     } else {
@@ -78,7 +89,7 @@ export function Minesweeper() {
         handleClickUncover(initialCoordinate.current[0], initialCoordinate.current[1])
       }
     }
-  }, [gameNotStarted, handleClickUncover])
+  }, [gameStatus, handleClickUncover])
 
   return (
     <>
@@ -115,7 +126,7 @@ export function Minesweeper() {
             setMap(MakeMap(width, height, bombRate / 100, []))
             setCoveredMap(MakeCoveredMap(width, height))
             setFlagMap(MakeFlagMap(width, height))
-            setGameNotStarted(true)
+            setGameStatus('ready')
           }}
         >
           {/* Reset 버튼은 게임 시작 전 상태로 만든다 */}
@@ -123,7 +134,7 @@ export function Minesweeper() {
         </button>
       </div>
       <div>
-        {gameNotStarted
+        {gameStatus === 'ready'
           ? `${0} 💣 / ${0} 🚩 / ${0} 🔎`
           : `${totalMines} 💣 / ${totalFlags} 🚩 / ${totalMines - totalFlags} 🔎`}
       </div>
@@ -141,7 +152,7 @@ export function Minesweeper() {
               <button
                 key={cellIndex}
                 onClick={() => {
-                  if (gameNotStarted) {
+                  if (gameStatus === 'ready') {
                     // 첫 클릭 시 map 생성
                     // safe coordinates: self, 8-neighbors
                     setMap(
@@ -155,11 +166,15 @@ export function Minesweeper() {
                           .filter(([x, y]) => Minesweeper.c.isInMap(map, x, y)),
                       ])
                     )
-                    setGameNotStarted(false)
+                    setGameStatus('playing')
                     initialCoordinate.current = [rowIndex, cellIndex]
-                  } else {
+                  } else if (gameStatus === 'playing') {
                     // 첫 클릭이 아닌 게임 중 클릭
-                    handleClickUncover(rowIndex, cellIndex)
+                    if (isSafe(map, rowIndex, cellIndex)) {
+                      handleClickUncover(rowIndex, cellIndex)
+                    } else {
+                      setGameStatus('lost')
+                    }
                   }
                 }}
                 css={css`
@@ -237,6 +252,7 @@ export function Minesweeper() {
           </div>
         ))}
       </div>
+      {gameStatus}
     </>
   )
 }
