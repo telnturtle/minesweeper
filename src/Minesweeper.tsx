@@ -13,6 +13,12 @@ export function Minesweeper() {
   const [map, setMap] = useState<boolean[][]>([])
   const [coveredMap, setCoveredMap] = useState<boolean[][]>([])
   const [flagMap, setFlagMap] = useState<boolean[][]>([])
+
+  const totalMines: number = map.flat().filter(Boolean).length
+  const totalFlags: number = flagMap.flat().filter(Boolean).length
+  const remainMines: number = totalMines - totalFlags
+  const totalCovereds: number = coveredMap.flat().filter(Boolean).length
+
   const handleClickUncover = useCallback(
     (rowIndex: number, cellIndex: number) => {
       if (coveredMap[rowIndex][cellIndex] && isSafe(map, rowIndex, cellIndex)) {
@@ -94,7 +100,7 @@ export function Minesweeper() {
           />
         </label>
         <label>
-          bomb rate (%):
+          bomb probability (%):
           <input
             type="range"
             min={1}
@@ -115,6 +121,11 @@ export function Minesweeper() {
           {/* Reset 버튼은 게임 시작 전 상태로 만든다 */}
           Reset
         </button>
+      </div>
+      <div>
+        {gameNotStarted
+          ? `${0} 💣 / ${0} 🚩 / ${0} 🔎`
+          : `${totalMines} 💣 / ${totalFlags} 🚩 / ${totalMines - totalFlags} 🔎`}
       </div>
       <div>
         {map.map((row, rowIndex) => (
