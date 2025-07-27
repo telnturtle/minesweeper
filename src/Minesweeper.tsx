@@ -21,6 +21,35 @@ export function Minesweeper() {
   const remainMines: number = totalMines - totalFlags
   const totalCovereds: number = coveredMap.flat().filter(Boolean).length
 
+  const [processing, setProcessing] = useState<'' | 'lose' | 'win'>('')
+
+  const lose = (rowIndex: number, cellIndex: number) => {
+    setProcessing('lose')
+
+    // 플래그가 세워지지 않은 모든 지뢰에 대해,
+    // 주어진 좌표로부터의 각을 계산한다.
+    // 각이 0도 (수직으로 윗 방향) 부터 360도까지 돌도록 지뢰를 나열한다.
+    // 차례대로 폭발 이펙트.
+
+    const bombPerSecond = 7
+
+    const unflaggedBombCoordinates = map.map((row, rowIndex) =>
+      row
+        .map((cell, cellIndex) =>
+          cell && !flagMap[rowIndex][cellIndex] ? [rowIndex, cellIndex] : null
+        )
+        .filter(Boolean)
+    )
+
+    unflaggedBombCoordinates.forEach((bombCoordinate, index) => {
+      const [bombRowIndex, bombCellIndex] = bombCoordinate
+      const angle = Math.atan2(bombRowIndex - rowIndex, bombCellIndex - cellIndex)
+      const distance = Math.sqrt(
+        (bombRowIndex - rowIndex) ** 2 + (bombCellIndex - cellIndex) ** 2
+      )
+    })
+  }
+
   const handleClickUncover = useCallback(
     (rowIndex: number, cellIndex: number) => {
       if (coveredMap[rowIndex][cellIndex] && isSafe(map, rowIndex, cellIndex)) {
