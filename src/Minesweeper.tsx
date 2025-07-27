@@ -237,6 +237,7 @@ export function Minesweeper() {
                     clearTimeout(touchTimer.current)
                   }
                 }}
+                disabled={['won', 'lost'].includes(gameStatus)}
               >
                 {coveredMap[rowIndex][cellIndex]
                   ? flagMap[rowIndex][cellIndex]
