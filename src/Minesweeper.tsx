@@ -17,8 +17,10 @@ export function Minesweeper() {
       const coordinatesToOpen = [[rowIndex, cellIndex]]
       /** coordinatesToOpenSet 는 coordinatesToOpen 에 중복된 좌표가 들어가는 것을 방지한다. */
       const coordinatesToOpenSet = new Set<string>([`${rowIndex},${cellIndex}`])
-      /** BFS 를 사용해 재귀적으로 탐색한다. 첫 좌표를 넣어둔다. */
-      const coordinatesToBfs = [[rowIndex, cellIndex]]
+      /** BFS 를 사용해 재귀적으로 탐색한다. 만약 double safe 한 좌표라면 첫 좌표를 넣어둔다. */
+      const coordinatesToBfs = isDoubleSafe(map, rowIndex, cellIndex)
+        ? [[rowIndex, cellIndex]]
+        : []
       // BFS
       while (coordinatesToBfs.length > 0) {
         const item = coordinatesToBfs.shift()
