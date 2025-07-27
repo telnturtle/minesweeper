@@ -7,7 +7,7 @@ export function Minesweeper() {
   const touchTimer = useRef<number | null>(null)
   const [width, setWidth] = useState(15)
   const [height, setHeight] = useState(25)
-  const [bombRate, setBombRate] = useState(30)
+  const [bombRate, setBombRate] = useState(20)
   const [map, setMap] = useState<boolean[][]>([])
   const [coveredMap, setCoveredMap] = useState<boolean[][]>([])
   const [flagMap, setFlagMap] = useState<boolean[][]>([])
