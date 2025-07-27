@@ -1,6 +1,6 @@
 import { css } from '@emotion/react'
 import { clsx } from 'clsx'
-import { useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export function Minesweeper() {
   const { isSafe, isInMap, isDoubleSafe } = Minesweeper.c
@@ -8,54 +8,71 @@ export function Minesweeper() {
   const [width, setWidth] = useState(15)
   const [height, setHeight] = useState(25)
   const [bombRate, setBombRate] = useState(20)
+  const [gameNotStarted, setGameNotStarted] = useState<boolean>(true)
+  const initialCoordinate = useRef<[number, number] | null>(null)
   const [map, setMap] = useState<boolean[][]>([])
   const [coveredMap, setCoveredMap] = useState<boolean[][]>([])
   const [flagMap, setFlagMap] = useState<boolean[][]>([])
-  const handleClickUncover = (rowIndex: number, cellIndex: number) => {
-    if (coveredMap[rowIndex][cellIndex] && isSafe(map, rowIndex, cellIndex)) {
-      /** coordinatesToOpen 에 들어있는 좌표들은 열린다. 첫 좌표를 넣어둔다. */
-      const coordinatesToOpen = [[rowIndex, cellIndex]]
-      /** coordinatesToOpenSet 는 coordinatesToOpen 에 중복된 좌표가 들어가는 것을 방지한다. */
-      const coordinatesToOpenSet = new Set<string>([`${rowIndex},${cellIndex}`])
-      /** BFS 를 사용해 재귀적으로 탐색한다. 만약 double safe 한 좌표라면 첫 좌표를 넣어둔다. */
-      const coordinatesToBfs = isDoubleSafe(map, rowIndex, cellIndex)
-        ? [[rowIndex, cellIndex]]
-        : []
-      // BFS
-      while (coordinatesToBfs.length > 0) {
-        const item = coordinatesToBfs.shift()
-        // 타입 에러 방지
-        if (!item) break
-        const [x, y] = item
+  const handleClickUncover = useCallback(
+    (rowIndex: number, cellIndex: number) => {
+      if (coveredMap[rowIndex][cellIndex] && isSafe(map, rowIndex, cellIndex)) {
+        /** coordinatesToOpen 에 들어있는 좌표들은 열린다. 첫 좌표를 넣어둔다. */
+        const coordinatesToOpen = [[rowIndex, cellIndex]]
+        /** coordinatesToOpenSet 는 coordinatesToOpen 에 중복된 좌표가 들어가는 것을 방지한다. */
+        const coordinatesToOpenSet = new Set<string>([`${rowIndex},${cellIndex}`])
+        /** BFS 를 사용해 재귀적으로 탐색한다. 만약 double safe 한 좌표라면 첫 좌표를 넣어둔다. */
+        const coordinatesToBfs = isDoubleSafe(map, rowIndex, cellIndex)
+          ? [[rowIndex, cellIndex]]
+          : []
+        // BFS
+        while (coordinatesToBfs.length > 0) {
+          const item = coordinatesToBfs.shift()
+          // 타입 에러 방지
+          if (!item) break
+          const [x, y] = item
 
-        // 8-way uncover
-        Minesweeper.c.directions
-          .map(([dx, dy]) => [x + dx, y + dy])
-          .forEach(([x, y]) => {
-            if (
-              isInMap(map, x, y) &&
-              isSafe(map, x, y) &&
-              !coordinatesToOpenSet.has(`${x},${y}`)
-            ) {
-              // safe 한 좌표는 열린다.
-              coordinatesToOpen.push([x, y])
-              if (isDoubleSafe(map, x, y)) {
-                // double safe 한 좌표는 BFS 추가 탐색 대상이 된다.
-                coordinatesToBfs.push([x, y])
+          // 8-way uncover
+          Minesweeper.c.directions
+            .map(([dx, dy]) => [x + dx, y + dy])
+            .forEach(([x, y]) => {
+              if (
+                isInMap(map, x, y) &&
+                isSafe(map, x, y) &&
+                !coordinatesToOpenSet.has(`${x},${y}`)
+              ) {
+                // safe 한 좌표는 열린다.
+                coordinatesToOpen.push([x, y])
+                if (isDoubleSafe(map, x, y)) {
+                  // double safe 한 좌표는 BFS 추가 탐색 대상이 된다.
+                  coordinatesToBfs.push([x, y])
+                }
+                coordinatesToOpenSet.add(`${x},${y}`)
               }
-              coordinatesToOpenSet.add(`${x},${y}`)
-            }
+            })
+        }
+        // 열릴 좌표들을 연다.
+        setCoveredMap((coveredMap) => {
+          coordinatesToOpen.forEach(([x, y]) => {
+            coveredMap = Minesweeper.c.uncover(coveredMap, x, y)
           })
-      }
-      // 열릴 좌표들을 연다.
-      setCoveredMap((coveredMap) => {
-        coordinatesToOpen.forEach(([x, y]) => {
-          coveredMap = Minesweeper.c.uncover(coveredMap, x, y)
+          return coveredMap
         })
-        return coveredMap
-      })
+      }
+    },
+    [coveredMap, isDoubleSafe, isInMap, isSafe, map]
+  )
+
+  useEffect(() => {
+    if (gameNotStarted) {
+      // reset 버튼을 누르면 첫 클릭 좌표를 초기화한다.
+      initialCoordinate.current = null
+    } else {
+      // 첫 클릭되었다. 게임이 시작됨.
+      if (initialCoordinate.current) {
+        handleClickUncover(initialCoordinate.current[0], initialCoordinate.current[1])
+      }
     }
-  }
+  }, [gameNotStarted, handleClickUncover])
 
   return (
     <>
@@ -89,12 +106,14 @@ export function Minesweeper() {
         </label>
         <button
           onClick={() => {
-            setMap(MakeMap(width, height, bombRate / 100))
+            setMap(MakeMap(width, height, bombRate / 100, []))
             setCoveredMap(MakeCoveredMap(width, height))
             setFlagMap(MakeFlagMap(width, height))
+            setGameNotStarted(true)
           }}
         >
-          set map
+          {/* Reset 버튼은 게임 시작 전 상태로 만든다 */}
+          Reset
         </button>
       </div>
       <div>
@@ -111,7 +130,26 @@ export function Minesweeper() {
               <button
                 key={cellIndex}
                 onClick={() => {
-                  handleClickUncover(rowIndex, cellIndex)
+                  if (gameNotStarted) {
+                    // 첫 클릭 시 map 생성
+                    // safe coordinates: self, 8-neighbors
+                    setMap(
+                      MakeMap(width, height, bombRate / 100, [
+                        [rowIndex, cellIndex],
+                        ...Minesweeper.c.directions
+                          .map(
+                            ([dx, dy]) =>
+                              [rowIndex + dx, cellIndex + dy] as [number, number]
+                          )
+                          .filter(([x, y]) => Minesweeper.c.isInMap(map, x, y)),
+                      ])
+                    )
+                    setGameNotStarted(false)
+                    initialCoordinate.current = [rowIndex, cellIndex]
+                  } else {
+                    // 첫 클릭이 아닌 게임 중 클릭
+                    handleClickUncover(rowIndex, cellIndex)
+                  }
                 }}
                 css={css`
                   width: 25px;
@@ -209,7 +247,7 @@ Minesweeper.c = {
     [1, -1],
     [1, 0],
     [1, 1],
-  ],
+  ] as [number, number][],
   isSafe: (map: boolean[][], rowIndex: number, cellIndex: number) => {
     return !map[rowIndex][cellIndex]
   },
@@ -235,9 +273,19 @@ Minesweeper.c = {
   },
 }
 
-function MakeMap(width: number, height: number, bombRate: number): boolean[][] {
-  return Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => Math.random() < bombRate)
+/** safeCoordinates 에 있는 좌표는 모두 false 로 만든다. (안전) */
+function MakeMap(
+  width: number,
+  height: number,
+  bombRate: number,
+  safeCoordinates: [number, number][]
+): boolean[][] {
+  return Array.from({ length: height }, (_, rowIndex) =>
+    Array.from({ length: width }, (_, cellIndex) => {
+      return safeCoordinates.some(([x, y]) => x === rowIndex && y === cellIndex)
+        ? false
+        : Math.random() < bombRate
+    })
   )
 }
 function MakeCoveredMap(width: number, height: number): boolean[][] {
