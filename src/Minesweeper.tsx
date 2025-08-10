@@ -1,5 +1,6 @@
 import { css } from '@emotion/react'
 import { clsx } from 'clsx'
+import { range } from 'es-toolkit'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 export function Minesweeper() {
@@ -12,6 +13,7 @@ export function Minesweeper() {
     'ready'
   )
   const initialCoordinate = useRef<[number, number] | null>(null)
+  // map: true cell 은 폭탄, false cell 은 안전
   const [map, setMap] = useState<boolean[][]>([])
   const [coveredMap, setCoveredMap] = useState<boolean[][]>([])
   const [flagMap, setFlagMap] = useState<boolean[][]>([])
@@ -20,6 +22,68 @@ export function Minesweeper() {
   const totalFlags: number = flagMap.flat().filter(Boolean).length
   const remainMines: number = totalMines - totalFlags
   const totalCovereds: number = coveredMap.flat().filter(Boolean).length
+
+  const [explodedCellSet, setExplodedCellSet] = useState<Set<string>>(new Set())
+
+  const [isLostProcessing, setIsLostProcessing] = useState<boolean>(false)
+
+  const lose = (rowIndex: number, cellIndex: number) => {
+    const bombingDuration = 3.5
+
+    setIsLostProcessing(true)
+    // 클릭된 셀을 언커버.
+    setCoveredMap((coveredMap) => {
+      return coveredMap.map((row, rowI) =>
+        rowI === rowIndex
+          ? row.map((cell, cellI) => (cellI === cellIndex ? false : cell))
+          : row
+      )
+    })
+    // 아직 깃발이 꼽히지 않은 폭탄 셀을 모두 구한다.
+    const bombCells = range(0, map.length)
+      .map((rowI) => range(0, map[0].length).map((cellI) => [rowI, cellI]))
+      .flat()
+      .filter(([rowI, cellI]) => map[rowI][cellI] && !flagMap[rowI][cellI])
+
+    const bombCellsWithThetas = bombCells.map(([rowI, cellI]) => [
+      rowI,
+      cellI,
+      Math.atan2(cellI - cellIndex, rowI - rowIndex),
+    ])
+
+    bombCellsWithThetas.sort((a, b) => {
+      if (a[0] === rowIndex && a[1] === cellIndex) {
+        return -1
+      }
+      if (a[2] < b[2]) {
+        return -1
+      }
+      if (a[2] > b[2]) {
+        return 1
+      }
+      return 0
+    })
+
+    range(-50, 50, 1)
+      .map((item) => item / 10)
+      .forEach((i, index) => {
+        window.setTimeout(() => {
+          bombCellsWithThetas.forEach(([rowI, cellI, theta]) => {
+            if (theta < i) {
+              setExplodedCellSet((explodedCellSet) => {
+                return new Set([...explodedCellSet, `${rowI},${cellI}`])
+              })
+            }
+          })
+        }, index * (bombingDuration / ((4 - -4) / 0.1)) * 1000)
+      })
+
+    // 폭발 완료 후 게임 종료
+    window.setTimeout(() => {
+      setIsLostProcessing(false)
+      setGameStatus('lost')
+    }, (bombingDuration + 1) * 1000)
+  }
 
   const handleClickUncover = useCallback(
     (rowIndex: number, cellIndex: number) => {
@@ -127,6 +191,7 @@ export function Minesweeper() {
             setCoveredMap(MakeCoveredMap(width, height))
             setFlagMap(MakeFlagMap(width, height))
             setGameStatus('ready')
+            setExplodedCellSet(new Set())
           }}
         >
           {/* Reset 버튼은 게임 시작 전 상태로 만든다 */}
@@ -138,7 +203,16 @@ export function Minesweeper() {
           ? `${0} 💣 / ${0} 🚩 / ${0} 🔎`
           : `${totalMines} 💣 / ${totalFlags} 🚩 / ${totalMines - totalFlags} 🔎`}
       </div>
-      <div>
+      <div
+        css={css`
+          &.disabled {
+            pointer-events: none;
+          }
+        `}
+        className={clsx({
+          disabled: isLostProcessing,
+        })}
+      >
         {map.map((row, rowIndex) => (
           <div
             key={rowIndex}
@@ -171,9 +245,11 @@ export function Minesweeper() {
                   } else if (gameStatus === 'playing') {
                     // 첫 클릭이 아닌 게임 중 클릭
                     if (isSafe(map, rowIndex, cellIndex)) {
+                      // 클릭된 셀이 안전함
                       handleClickUncover(rowIndex, cellIndex)
                     } else {
-                      setGameStatus('lost')
+                      // 클릭된 셀이 폭탄임
+                      lose(rowIndex, cellIndex)
                     }
                   }
                 }}
@@ -239,15 +315,25 @@ export function Minesweeper() {
                 }}
                 disabled={['won', 'lost'].includes(gameStatus)}
               >
-                {coveredMap[rowIndex][cellIndex]
-                  ? flagMap[rowIndex][cellIndex]
-                    ? '🚩'
-                    : ' '
-                  : cell
-                  ? '💣'
-                  : isDoubleSafe(map, rowIndex, cellIndex)
-                  ? ' '
-                  : Minesweeper.c.getBombNeighbors(map, rowIndex, cellIndex).length}
+                {(() => {
+                  const isExploded = explodedCellSet.has(`${rowIndex},${cellIndex}`)
+                  const isCovered = coveredMap[rowIndex][cellIndex]
+                  if (isExploded) {
+                    return isCovered ? '💣' : '💥'
+                  }
+                  if (isCovered) {
+                    const isFlagged = flagMap[rowIndex][cellIndex]
+                    return isFlagged ? '🚩' : ' '
+                  }
+                  const isBomb = cell
+                  if (isBomb) {
+                    return '💥'
+                  }
+                  if (isDoubleSafe(map, rowIndex, cellIndex)) {
+                    return ' '
+                  }
+                  return Minesweeper.c.getBombNeighbors(map, rowIndex, cellIndex).length
+                })()}
               </button>
             ))}
           </div>
