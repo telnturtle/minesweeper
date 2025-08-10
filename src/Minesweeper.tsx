@@ -2,6 +2,7 @@ import { css } from '@emotion/react'
 import { clsx } from 'clsx'
 import { range } from 'es-toolkit'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useChordXY } from './useChord'
 
 export function Minesweeper() {
   const { isSafe, isInMap, isDoubleSafe } = Minesweeper.c
@@ -134,6 +135,65 @@ export function Minesweeper() {
     [coveredMap, isDoubleSafe, isInMap, isSafe, map]
   )
 
+  const [cannotChordSet, setCannotChordSet] = useState<Set<string>>(new Set())
+
+  const handleClickChord = (rowIndex: number, cellIndex: number) => {
+    console.log('chord', rowIndex, cellIndex)
+
+    // 만약 주변 깃발 수와 숫자가 같다면 주변 셀을 연다.
+    const bombNeighbors = Minesweeper.c.getBombNeighbors(map, rowIndex, cellIndex)
+    const flaggedNeighbors = Minesweeper.c.directions
+      .map(([dx, dy]) => [rowIndex + dx, cellIndex + dy])
+      .filter(([x, y]) => Minesweeper.c.isInMap(map, x, y))
+      .filter(([x, y]) => flagMap[x][y])
+    const neighborsCoveredNoFlaggedYesCovered = Minesweeper.c.directions
+      .map(([dx, dy]) => [rowIndex + dx, cellIndex + dy])
+      .filter(([x, y]) => Minesweeper.c.isInMap(map, x, y))
+      .filter(([x, y]) => !flaggedNeighbors.some(([x2, y2]) => x2 === x && y2 === y))
+      .filter(([x, y]) => coveredMap[x][y])
+    console.log(JSON.stringify(flaggedNeighbors))
+    // console.log(JSON.stringify(flags), JSON.stringify(neighborsCoveredNoFlagged))
+
+    if (flaggedNeighbors.length === bombNeighbors.length) {
+      neighborsCoveredNoFlaggedYesCovered.forEach(([x, y]) => {
+        handleClickUncover(x, y)
+      })
+    } else {
+      const toBeAdded = neighborsCoveredNoFlaggedYesCovered.map(([x, y]) => `${x},${y}`)
+      // 주변 깃발 수와 숫자가 일치하지 않다면 주변 셀에 이펙트를 준다.
+      setCannotChordSet((cannotChordSet) => {
+        return new Set([...cannotChordSet, ...toBeAdded])
+      })
+    }
+  }
+
+  const { isChord, xy, getChordProps } = useChordXY({
+    onStart: (x, y) => {
+      // 동시클릭 시작 시
+      handleClickChord(x, y)
+      // 별도 UI state
+      // setSomeState(true);
+    },
+    onEnd: (x, y) => {
+      // 동시클릭 종료 시
+      // 주변 셀 이펙트 제거
+      const neighbors = Minesweeper.c.directions
+        .map(([dx, dy]) => [x + dx, y + dy])
+        .filter(([x, y]) => Minesweeper.c.isInMap(map, x, y))
+      setCannotChordSet((cannotChordSet) => {
+        return new Set([...cannotChordSet, ...neighbors.map(([x, y]) => `${x},${y}`)])
+      })
+    },
+  })
+
+  // 주변 열기 (chord)
+  const handleChord = (r: number, c: number) => {
+    // 예시: 숫자칸이고, 주변 깃발 수 == 숫자면 8방향 오픈 등
+    // 이미 갖고 계신 헬퍼를 쓰시면 됩니다.
+    // handleClickChord(r, c) 같은 걸로 빼두세요.
+    handleClickChord?.(r, c)
+  }
+
   useEffect(() => {
     if (gameStatus === 'playing') {
       if (remainMines === 0) {
@@ -154,6 +214,8 @@ export function Minesweeper() {
       }
     }
   }, [gameStatus, handleClickUncover])
+
+  console.log('render')
 
   return (
     <>
@@ -225,34 +287,47 @@ export function Minesweeper() {
             {row.map((cell, cellIndex) => (
               <button
                 key={cellIndex}
-                onClick={() => {
-                  if (gameStatus === 'ready') {
-                    // 첫 클릭 시 map 생성
-                    // safe coordinates: self, 8-neighbors
-                    setMap(
-                      MakeMap(width, height, bombRate / 100, [
-                        [rowIndex, cellIndex],
-                        ...Minesweeper.c.directions
-                          .map(
-                            ([dx, dy]) =>
-                              [rowIndex + dx, cellIndex + dy] as [number, number]
+                {...getChordProps({
+                  x: rowIndex,
+                  y: cellIndex,
+                  handlers: {
+                    // 기존 onClick 유지
+                    onClick: () => {
+                      if (gameStatus === 'ready') {
+                        setMap(
+                          MakeMap(width, height, bombRate / 100, [
+                            [rowIndex, cellIndex],
+                            ...Minesweeper.c.directions
+                              .map(
+                                ([dx, dy]) =>
+                                  [rowIndex + dx, cellIndex + dy] as [number, number]
+                              )
+                              .filter(([x, y]) => Minesweeper.c.isInMap(map, x, y)),
+                          ])
+                        )
+                        setGameStatus('playing')
+                        initialCoordinate.current = [rowIndex, cellIndex]
+                      } else if (gameStatus === 'playing') {
+                        if (isSafe(map, rowIndex, cellIndex)) {
+                          handleClickUncover(rowIndex, cellIndex)
+                        } else {
+                          lose(rowIndex, cellIndex)
+                        }
+                      }
+                    },
+                    // 기존 우클릭(깃발) 유지
+                    onContextMenu: (e) => {
+                      e.preventDefault()
+                      setFlagMap((flagMap) =>
+                        flagMap.map((row, rowI) =>
+                          row.map((cell, cellI) =>
+                            cellI === cellIndex && rowI === rowIndex ? !cell : cell
                           )
-                          .filter(([x, y]) => Minesweeper.c.isInMap(map, x, y)),
-                      ])
-                    )
-                    setGameStatus('playing')
-                    initialCoordinate.current = [rowIndex, cellIndex]
-                  } else if (gameStatus === 'playing') {
-                    // 첫 클릭이 아닌 게임 중 클릭
-                    if (isSafe(map, rowIndex, cellIndex)) {
-                      // 클릭된 셀이 안전함
-                      handleClickUncover(rowIndex, cellIndex)
-                    } else {
-                      // 클릭된 셀이 폭탄임
-                      lose(rowIndex, cellIndex)
-                    }
-                  }
-                }}
+                        )
+                      )
+                    },
+                  },
+                })}
                 css={css`
                   width: 25px;
                   height: 25px;
@@ -272,25 +347,18 @@ export function Minesweeper() {
                   display: inline-flex;
                   justify-content: center;
                   align-items: center;
+                  &.chording {
+                    background-color: rgb(200 200 200 / 0.2);
+                  }
                 `}
                 className={clsx({
                   covered: coveredMap[rowIndex][cellIndex],
                   bomb: cell,
                   empty: !cell,
                   doubleSafe: isDoubleSafe(map, rowIndex, cellIndex),
+                  chording: isChord && cannotChordSet.has(`${rowIndex},${cellIndex}`),
                 })}
                 contextMenu="none"
-                // 우클릭 시 flag set
-                onContextMenu={(e) => {
-                  e.preventDefault()
-                  setFlagMap((flagMap) => {
-                    return flagMap.map((row, rowI) =>
-                      row.map((cell, cellI) =>
-                        cellI === cellIndex && rowI === rowIndex ? !cell : cell
-                      )
-                    )
-                  })
-                }}
                 onTouchStart={() => {
                   touchTimer.current = setTimeout(() => {
                     // 500ms 이상 누르면 깃발
